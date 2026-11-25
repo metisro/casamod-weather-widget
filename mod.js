@@ -1,13 +1,16 @@
-// CasaMOD: Weather Widget v1.1.0
+// ReCasaOS / CasaMOD: Weather Widget v1.4.0
 // Based on CasaOS-UI PR #257's Weather.vue idea, adapted as an injected CasaMOD.
 
 (function CasaMODWeatherWidget() {
   "use strict";
 
+  // CasaMOD may also inject mods into embedded Wujie apps. The dashboard is
+  // the only place where this widget belongs.
+  if (window !== window.top || window.__POWERED_BY_WUJIE__) return;
+
   const MOD_ID = "casamod-weather";
   const WIDGET_ID = "weather";
-  const OBSERVED_ANCHOR = ".ps-container";
-  const CONFIG_PATH = "/var/lib/casaos/1/weather-widget.json";
+  const CONFIG_PATH = "/DATA/AppData/casamod/weather-widget.json";
   const SCRIPT_URL = document.currentScript?.src || "";
   const THEMES = {
     casa: {
@@ -34,9 +37,20 @@
     refreshInterval: 30,
     clockFormat: "24h",
     tempUnit: "C",
-    theme: "casa"
+    theme: "casa",
+    betaPlacement: "both"
   };
 
+  function dashboardContainer() {
+    // The classic dashboard keeps widgets in its sidebar. The beta dashboard
+    // replaces that tree with an aside in HealthStrip; the wallpaper is never
+    // a safe fallback because it fills the viewport.
+    return document.querySelector(".dashboard-beta .beta-aside") ||
+      document.querySelector(".widgets-content") ||
+      document.querySelector(".ps-container");
+  }
+
+  let currentConfig = DEFAULT_CONFIG;
   let refreshTimer = null;
   let clockTimer = null;
   let currentClockFormat = DEFAULT_CONFIG.clockFormat;
@@ -63,10 +77,12 @@
 
   function token() {
     try {
-      return document.querySelector("#app").__vue__.$store.state.access_token || "";
-    } catch (_) {
-      return localStorage.getItem("access_token") || "";
-    }
+      const app = document.querySelector("#app");
+      const vue2Token = app?.__vue__?.$store?.state?.access_token;
+      const vue3Token = app?.__vueParentComponent?.appContext?.config?.globalProperties?.$store?.state?.access_token;
+      if (vue2Token || vue3Token) return vue2Token || vue3Token;
+    } catch (_) {}
+    try { return localStorage.getItem("access_token") || ""; } catch (_) { return ""; }
   }
 
   function authHeaders() {
@@ -130,7 +146,10 @@
       refreshInterval: Number(config?.refreshInterval || DEFAULT_CONFIG.refreshInterval),
       clockFormat: config?.clockFormat === "12h" ? "12h" : "24h",
       tempUnit: config?.tempUnit === "F" ? "F" : "C",
-      theme: THEMES[config?.theme] ? config.theme : "casa"
+      theme: THEMES[config?.theme] ? config.theme : "casa",
+      betaPlacement: ["header", "card", "both", "disabled"].includes(config?.betaPlacement)
+        ? config.betaPlacement
+        : "both"
     };
   }
 
@@ -140,19 +159,23 @@
 
       if (!raw || !raw.trim()) {
         await writeConfigFile(DEFAULT_CONFIG);
+        currentConfig = DEFAULT_CONFIG;
         return DEFAULT_CONFIG;
       }
 
-      return normalizeConfig(JSON.parse(raw));
+      currentConfig = normalizeConfig(JSON.parse(raw));
+      return currentConfig;
     } catch (_) {
       await createConfigFile();
       await writeConfigFile(DEFAULT_CONFIG);
+      currentConfig = DEFAULT_CONFIG;
       return DEFAULT_CONFIG;
     }
   }
 
   async function saveConfig(config) {
-    await writeConfigFile(normalizeConfig(config));
+    currentConfig = normalizeConfig(config);
+    await writeConfigFile(currentConfig);
   }
 
   async function getWeather(config) {
@@ -162,7 +185,7 @@
       "&longitude=" + encodeURIComponent(config.longitude) +
       "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m" +
       "&hourly=temperature_2m" +
-      "&daily=weather_code,temperature_2m_max,temperature_2m_min" +
+      "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max" +
       "&forecast_days=10" +
       "&timezone=auto";
 
@@ -345,17 +368,157 @@
         position: relative;
       }
 
+      .${MOD_ID}-topbar-widget {
+        position: relative;
+        flex: 0 0 auto;
+        margin-left: auto;
+        margin-right: .75rem;
+        color: #f1f5f9;
+        text-align: left;
+      }
+
+      .${MOD_ID}-header-trigger {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 32px;
+        padding: 3px 10px;
+        border: 1px solid rgba(255,255,255,.10);
+        border-radius: 999px;
+        background: rgba(255,255,255,.07);
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .${MOD_ID}-header-trigger:hover,
+      .${MOD_ID}-header-trigger[aria-expanded="true"] {
+        background: rgba(255,255,255,.14);
+      }
+
+      .${MOD_ID}-header-icon {
+        width: 24px;
+        height: 24px;
+        object-fit: contain;
+      }
+
+      .${MOD_ID}-header-temp {
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .${MOD_ID}-header-city {
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 12px;
+        opacity: .82;
+      }
+
+      .${MOD_ID}-header-popover {
+        position: absolute;
+        z-index: 40;
+        top: calc(100% + 8px);
+        right: 0;
+        width: 310px;
+        max-width: calc(100vw - 24px);
+        padding: 14px;
+        border: 1px solid rgba(255,255,255,.16);
+        border-radius: 14px;
+        background: rgba(18,25,39,.94);
+        color: #f1f5f9;
+        box-shadow: 0 16px 40px rgba(0,0,0,.38);
+        backdrop-filter: blur(20px);
+      }
+
+      .${MOD_ID}-header-popover[hidden] { display: none !important; }
+
+      .${MOD_ID}-header-summary {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 12px;
+      }
+
+      .${MOD_ID}-header-summary img {
+        width: 42px;
+        height: 42px;
+        object-fit: contain;
+      }
+
+      .${MOD_ID}-header-summary strong,
+      .${MOD_ID}-header-summary span { display: block; }
+      .${MOD_ID}-header-summary strong { font-size: 14px; }
+      .${MOD_ID}-header-summary span { font-size: 11px; opacity: .72; }
+
+      .${MOD_ID}-header-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0,1fr));
+        gap: 7px;
+        margin-bottom: 11px;
+      }
+
+      .${MOD_ID}-header-metric {
+        padding: 7px 8px;
+        border-radius: 9px;
+        background: rgba(255,255,255,.08);
+      }
+
+      .${MOD_ID}-header-metric span,
+      .${MOD_ID}-header-metric strong { display:block; }
+      .${MOD_ID}-header-metric span { font-size: 9px; text-transform:uppercase; opacity:.68; }
+      .${MOD_ID}-header-metric strong { margin-top:2px; font-size:12px; }
+
+      .${MOD_ID}-header-days { display:grid; gap:4px; }
+      .${MOD_ID}-header-day {
+        display:grid;
+        grid-template-columns: 42px 24px minmax(0,1fr) auto;
+        align-items:center;
+        gap:6px;
+        min-height:28px;
+        padding:2px 6px;
+        border-radius:7px;
+        background:rgba(255,255,255,.055);
+        font-size:11px;
+      }
+      .${MOD_ID}-header-day img { width:22px; height:22px; object-fit:contain; }
+      .${MOD_ID}-header-day span:last-child { white-space:nowrap; }
+      .${MOD_ID}-header-settings {
+        width:100%;
+        margin-top:10px;
+        padding:7px 9px;
+        border:0;
+        border-radius:8px;
+        background:rgba(255,255,255,.09);
+        color:inherit;
+        text-align:left;
+        cursor:pointer;
+      }
+
+      @media (max-width: 480px) {
+        .${MOD_ID}-header-city { display:none; }
+        .${MOD_ID}-header-trigger { padding:3px 7px; }
+        .${MOD_ID}-modal { padding: 16px; }
+        .${MOD_ID}-switch-row { gap: 8px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .${MOD_ID}-header-trigger { transition:none; }
+      }
+
       .${MOD_ID}-card {
         position: relative;
         overflow: hidden;
         min-height: 238px;
-        padding: 16px;
+        padding: 12px;
         border-radius: 16px;
-        color: var(--text-1, #e0e4f0);
+    /* color: var(--text-1, #e0e4f0);
         background: var(--background-2, rgba(30, 32, 48, .88));
         border: 1px solid var(--background-4, rgba(255, 255, 255, .08));
         box-shadow: 0 8px 26px rgba(0, 0, 0, .22);
-        backdrop-filter: blur(16px);
+        backdrop-filter: blur(16px); */
       }
 
       .${MOD_ID}-bg-icon {
@@ -378,16 +541,23 @@
       .${MOD_ID}-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: space-between !important;
         gap: 10px;
+        width: 100%;
+        text-align: left !important;
       }
 
       .${MOD_ID}-title {
         display: flex;
         align-items: center;
+        justify-content: flex-start !important;
         gap: 8px;
         min-width: 0;
+        margin-right: auto;
+        text-align: left !important;
       }
+
+      .${MOD_ID}-controls { margin-left: auto; }
 
       .${MOD_ID}-main-icon {
         width: 28px;
@@ -411,7 +581,7 @@
       .${MOD_ID}-status {
         margin-top: 2px;
         font-size: 11px;
-        color: var(--text-3, #7880a0);
+        color: var(--text-3, #ecf4fe);
       }
 
       .${MOD_ID}-controls {
@@ -446,7 +616,7 @@
         border-radius: 50%;
         cursor: pointer;
         background: rgba(255, 255, 255, .08);
-        color: var(--text-2, #a0a8c0);
+        color: var(--text-2, #f5f5f5);
         transition: background .15s, color .15s, transform .15s;
       }
 
@@ -479,7 +649,7 @@
         text-align: right;
         font-size: 12px;
         line-height: 1.55;
-        color: var(--text-2, #a0a8c0);
+        color: var(--text-2, #f3f5f6);
         white-space: nowrap;
       }
 
@@ -536,7 +706,7 @@
       .${MOD_ID}-stat-label {
         display: block;
         font-size: 10px;
-        color: var(--text-3, #7880a0);
+        color: var(--text-3, #ecf7fe);
         text-transform: uppercase;
       }
 
@@ -569,6 +739,9 @@
       .${MOD_ID}-modal {
         width: 420px;
         max-width: calc(100vw - 32px);
+        max-height: calc(100vh - 32px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         border-radius: 14px;
         padding: 24px;
         background: var(--background-2, #1e2030);
@@ -612,10 +785,11 @@
 
       .${MOD_ID}-switch-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         gap: 14px;
         padding: 10px 0 2px;
+        flex-wrap: wrap;
       }
 
       .${MOD_ID}-switch-label {
@@ -625,6 +799,8 @@
 
       .${MOD_ID}-unit-switch {
         display: inline-flex;
+        flex-wrap: wrap;
+        max-width: 100%;
         padding: 3px;
         border-radius: 999px;
         background: var(--background-3, #252840);
@@ -655,6 +831,21 @@
         font-weight: 700;
         text-align: center;
         cursor: pointer;
+      }
+
+      .${MOD_ID}-placement-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        flex: 1 1 100%;
+        gap: 4px;
+        border-radius: 10px;
+      }
+
+      .${MOD_ID}-placement-switch label { min-width: 0; }
+      .${MOD_ID}-placement-switch .${MOD_ID}-unit-option {
+        display: block;
+        min-width: 0;
+        white-space: normal;
       }
 
       .${MOD_ID}-unit-switch input:checked + .${MOD_ID}-unit-option {
@@ -731,9 +922,127 @@
     return link;
   }
 
+  function ensureHeaderWidget() {
+    const target = document.querySelector(".dashboard-beta .top-bar") ||
+      document.querySelector(".top-bar") ||
+      document.querySelector(".topbar");
+    if (!target) return null;
+
+    let root = document.getElementById(MOD_ID + "-header");
+    if (root && root.parentElement !== target) target.appendChild(root);
+    if (root) return root;
+
+    root = document.createElement("div");
+    root.id = MOD_ID + "-header";
+    root.className = MOD_ID + "-topbar-widget";
+    root.innerHTML = `
+      <button id="${MOD_ID}-header-trigger" class="${MOD_ID}-header-trigger" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="Weather forecast">
+        <img id="${MOD_ID}-header-icon" class="${MOD_ID}-header-icon" alt="">
+        <span id="${MOD_ID}-header-temp" class="${MOD_ID}-header-temp">--&deg;C</span>
+        <span id="${MOD_ID}-header-city" class="${MOD_ID}-header-city">Weather</span>
+      </button>
+      <div id="${MOD_ID}-header-popover" class="${MOD_ID}-header-popover" role="dialog" aria-label="Weather forecast" hidden>
+        <div class="${MOD_ID}-header-summary">
+          <img id="${MOD_ID}-header-summary-icon" alt="">
+          <div><strong id="${MOD_ID}-header-summary-title">Weather</strong><span id="${MOD_ID}-header-summary-label">Loading forecast...</span></div>
+        </div>
+        <div class="${MOD_ID}-header-metrics">
+          <div class="${MOD_ID}-header-metric"><span>Today</span><strong id="${MOD_ID}-header-high-low">-- / --</strong></div>
+          <div class="${MOD_ID}-header-metric"><span>Precipitation chance</span><strong id="${MOD_ID}-header-rain">--</strong></div>
+          <div class="${MOD_ID}-header-metric"><span>Humidity</span><strong id="${MOD_ID}-header-humidity">--</strong></div>
+          <div class="${MOD_ID}-header-metric"><span>Wind</span><strong id="${MOD_ID}-header-wind">--</strong></div>
+        </div>
+        <div id="${MOD_ID}-header-days" class="${MOD_ID}-header-days"></div>
+        <button id="${MOD_ID}-header-settings" class="${MOD_ID}-header-settings" type="button">Weather settings</button>
+      </div>`;
+    target.appendChild(root);
+
+    const trigger = root.querySelector("#" + MOD_ID + "-header-trigger");
+    const popover = root.querySelector("#" + MOD_ID + "-header-popover");
+    const closePopover = () => {
+      popover.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    };
+    trigger.addEventListener("click", event => {
+      event.stopPropagation();
+      popover.hidden = !popover.hidden;
+      trigger.setAttribute("aria-expanded", String(!popover.hidden));
+    });
+    root.querySelector("#" + MOD_ID + "-header-settings").addEventListener("click", () => {
+      closePopover();
+      openSettings();
+    });
+    document.addEventListener("click", event => {
+      if (!root.contains(event.target)) closePopover();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closePopover();
+    });
+    return root;
+  }
+
+  function updateHeaderWidget(config, current) {
+    const root = document.getElementById(MOD_ID + "-header");
+    if (!root || !current) return;
+
+    const visual = lastWeatherVisual;
+    const iconUrl = visual?.scene?.icon ? assetUrl("icons/meteocons-fill/" + visual.scene.icon) : "";
+    const icon = root.querySelector("#" + MOD_ID + "-header-icon");
+    const summaryIcon = root.querySelector("#" + MOD_ID + "-header-summary-icon");
+    if (icon && iconUrl) icon.src = iconUrl;
+    if (summaryIcon && iconUrl) summaryIcon.src = iconUrl;
+
+    const symbol = unitSymbol(config);
+    const temperature = formatTemp(current.temperature_2m, config) + "°" + symbol;
+    setText(MOD_ID + "-header-temp", temperature);
+    setText(MOD_ID + "-header-city", config.city || "Weather");
+    setText(MOD_ID + "-header-summary-title", (config.city || "Weather") + " · " + temperature);
+    setText(MOD_ID + "-header-summary-label", visual?.label || "Weather");
+    setText(MOD_ID + "-header-high-low", lastDailyForecast[0]
+      ? lastDailyForecast[0].high + "° / " + lastDailyForecast[0].low + "° " + symbol
+      : "-- / --");
+    setText(MOD_ID + "-header-rain", lastDailyForecast[0]?.precipitation == null
+      ? "--"
+      : lastDailyForecast[0].precipitation + "%");
+    setText(MOD_ID + "-header-humidity", Math.round(current.relative_humidity_2m) + "%");
+    setText(MOD_ID + "-header-wind", Math.round(current.wind_speed_10m) + " km/h");
+
+    const days = root.querySelector("#" + MOD_ID + "-header-days");
+    if (days) {
+      days.innerHTML = lastDailyForecast.slice(0, 5).map((day, index) => `
+        <div class="${MOD_ID}-header-day" title="${escapeHtml(weatherLabel(day.code))}">
+          <span>${index === 0 ? "Today" : escapeHtml(day.date.toLocaleDateString([], { weekday: "short" }))}</span>
+          <img src="${assetUrl("icons/meteocons-fill/" + day.icon)}" alt="">
+          <span>${escapeHtml(weatherLabel(day.code))}</span>
+          <span><strong>${day.high}°</strong> ${day.low}°</span>
+        </div>`).join("");
+    }
+
+    root.querySelector("#" + MOD_ID + "-header-trigger")?.setAttribute("aria-label", `${visual?.label || "Weather"}, ${temperature}, ${config.city || "Weather"}`);
+  }
+
+  function setHeaderWidgetVisible(visible) {
+    const root = document.getElementById(MOD_ID + "-header");
+    if (!root) return;
+    root.hidden = !visible;
+    if (!visible) {
+      const popover = root.querySelector("#" + MOD_ID + "-header-popover");
+      const trigger = root.querySelector("#" + MOD_ID + "-header-trigger");
+      if (popover) popover.hidden = true;
+      trigger?.setAttribute("aria-expanded", "false");
+    }
+  }
+
   async function renderShell(config) {
-    const container = document.querySelector(OBSERVED_ANCHOR);
+    const container = dashboardContainer();
     if (!container) return null;
+
+    const isBeta = !!container.closest(".dashboard-beta");
+    const placement = config.betaPlacement || "card";
+    const showCard = !isBeta || placement === "card" || placement === "both";
+    const showHeader = isBeta && (placement === "header" || placement === "both");
+    ensureHeaderWidget();
+    setHeaderWidgetVisible(showHeader);
 
     let wrapper = document.querySelector(`[widget-id="${WIDGET_ID}"]`);
     if (wrapper && !wrapper.querySelector("#" + MOD_ID + "-forecast-btn")) {
@@ -741,7 +1050,18 @@
       wrapper = null;
     }
 
+    if (!showCard) {
+      wrapper?.remove();
+      return null;
+    }
+
     if (wrapper) {
+      if (isBeta && (wrapper.parentElement !== container || wrapper !== container.lastElementChild)) {
+        // The feature request suggests the expanded card below Backups.
+        container.appendChild(wrapper);
+      } else if (!isBeta && wrapper.parentElement !== container) {
+        container.insertBefore(wrapper, container.firstChild);
+      }
       ensureSceneArt(wrapper);
       applyTheme(wrapper, config.theme);
       return wrapper;
@@ -825,7 +1145,8 @@
       </div>
     `;
 
-    container.insertBefore(wrapper, container.firstChild);
+    if (isBeta) container.appendChild(wrapper);
+    else container.insertBefore(wrapper, container.firstChild);
 
     wrapper.querySelector("#" + MOD_ID + "-refresh").addEventListener("click", updateWeather);
     wrapper.querySelector("#" + MOD_ID + "-settings").addEventListener("click", openSettings);
@@ -953,6 +1274,7 @@
     const codes = daily.weather_code || [];
     const highs = daily.temperature_2m_max || [];
     const lows = daily.temperature_2m_min || [];
+    const precipitation = daily.precipitation_probability_max || [];
 
     return dates.slice(0, 10).map((date, index) => {
       const artwork = weatherScene(codes[index], true, 0);
@@ -961,6 +1283,7 @@
         code: codes[index],
         high: convertTemp(highs[index], config),
         low: convertTemp(lows[index], config),
+        precipitation: Number.isFinite(Number(precipitation[index])) ? Number(precipitation[index]) : null,
         unit: unitSymbol(config),
         icon: artwork.icon
       };
@@ -1195,6 +1518,7 @@
       lastForecast = forecast;
       lastDailyForecast = buildDailyForecast(data, config);
       const symbol = unitSymbol(config);
+      updateHeaderWidget(config, current);
 
       setText(MOD_ID + "-city", config.city || "Weather");
       setText(MOD_ID + "-label", activeView === "forecast" ? "10-day forecast" : label);
@@ -1229,6 +1553,21 @@
       <label>
         <input type="radio" name="${MOD_ID}-theme" value="${value}" ${selectedTheme === value ? "checked" : ""}>
         <span class="${MOD_ID}-unit-option">${escapeHtml(theme.label)}</span>
+      </label>
+    `).join("");
+  }
+
+  function renderPlacementOptions(selectedPlacement) {
+    const options = [
+      ["header", "Header widget"],
+      ["card", "Expanded card"],
+      ["both", "Both"],
+      ["disabled", "Disabled"]
+    ];
+    return options.map(([value, label]) => `
+      <label>
+        <input type="radio" name="${MOD_ID}-placement" value="${value}" ${selectedPlacement === value ? "checked" : ""}>
+        <span class="${MOD_ID}-unit-option">${label}</span>
       </label>
     `).join("");
   }
@@ -1287,6 +1626,13 @@
           </div>
         </div>
 
+        <div class="${MOD_ID}-field ${MOD_ID}-switch-row">
+          <span class="${MOD_ID}-switch-label">Beta dashboard placement</span>
+          <div class="${MOD_ID}-unit-switch ${MOD_ID}-placement-switch" role="radiogroup" aria-label="Beta dashboard placement">
+            ${renderPlacementOptions(config.betaPlacement)}
+          </div>
+        </div>
+
         <div class="${MOD_ID}-footer">
           <button class="${MOD_ID}-btn ${MOD_ID}-btn-cancel" id="${MOD_ID}-lookup">Look Up City</button>
           <button class="${MOD_ID}-btn ${MOD_ID}-btn-cancel" id="${MOD_ID}-cancel">Cancel</button>
@@ -1337,7 +1683,12 @@
         tempUnit: overlay.querySelector(`input[name="${MOD_ID}-unit"]:checked`)?.value === "F" ? "F" : "C",
         theme: THEMES[overlay.querySelector(`input[name="${MOD_ID}-theme"]:checked`)?.value]
           ? overlay.querySelector(`input[name="${MOD_ID}-theme"]:checked`).value
-          : "casa"
+          : "casa",
+        betaPlacement: ["header", "card", "both", "disabled"].includes(
+          overlay.querySelector(`input[name="${MOD_ID}-placement"]:checked`)?.value
+        )
+          ? overlay.querySelector(`input[name="${MOD_ID}-placement"]:checked`).value
+          : "both"
       };
 
       if (!Number.isFinite(next.latitude) || !Number.isFinite(next.longitude)) {
@@ -1353,15 +1704,36 @@
     setTimeout(() => cityInput.focus(), 50);
   }
 
+  let bootRequest = null;
+
   function moduleFunction() {
+    if (bootRequest) return bootRequest;
     injectStyles();
-    getConfig()
+    bootRequest = getConfig()
       .then(renderShell)
       .then(updateWeather)
       .catch(error => {
         console.error("[CasaMOD Weather] boot failed", error);
         showError(error.message || "Weather widget failed to start");
+      })
+      .finally(() => {
+        bootRequest = null;
+        const container = dashboardContainer();
+        if (!container) return;
+        const isBeta = !!container.closest(".dashboard-beta");
+        const placement = currentConfig.betaPlacement || "card";
+        const needsCard = !isBeta || placement === "card" || placement === "both";
+        const needsHeader = isBeta && (placement === "header" || placement === "both");
+        const wrapper = document.querySelector(`[widget-id="${WIDGET_ID}"]`);
+        const header = document.getElementById(MOD_ID + "-header");
+        if ((needsCard && (!wrapper || wrapper.parentElement !== container)) ||
+            (!needsCard && wrapper?.parentElement === container) ||
+            (needsHeader && (!header || header.hidden)) ||
+            (!needsHeader && header && !header.hidden)) {
+          debouncedBoot();
+        }
       });
+    return bootRequest;
   }
 
   function debounce(func, wait) {
@@ -1374,24 +1746,35 @@
 
   const debouncedBoot = debounce(moduleFunction, 80);
 
-  const observer = new MutationObserver(mutations => {
-    for (const mutation of mutations) {
-      if (mutation.target.querySelector?.(OBSERVED_ANCHOR)) {
-        observer.disconnect();
-        debouncedBoot();
-        break;
-      }
+  const observer = new MutationObserver(() => {
+    const container = dashboardContainer();
+    if (!container) return;
+    const wrapper = document.querySelector(`[widget-id="${WIDGET_ID}"]`);
+    const isBeta = !!container.closest(".dashboard-beta");
+    const placement = currentConfig.betaPlacement || "card";
+    const needsCard = !isBeta || placement === "card" || placement === "both";
+    const needsHeader = isBeta && (placement === "header" || placement === "both");
+    const header = document.getElementById(MOD_ID + "-header");
+    const cardNeedsSync = needsCard
+      ? (!wrapper || wrapper.parentElement !== container)
+      : !!wrapper && wrapper.parentElement === container;
+    const headerNeedsSync = needsHeader
+      ? (!header || header.hidden)
+      : !!header && !header.hidden;
+    // Stay attached after the first render: switching classic/beta replaces
+    // the dashboard subtree, and the weather card must follow the new target.
+    if (!bootRequest && (cardNeedsSync || headerNeedsSync)) {
+      debouncedBoot();
     }
   });
 
   window.addEventListener("resize", debounce(() => drawChart(lastForecast), 120));
 
-  if (document.querySelector(OBSERVED_ANCHOR)) {
+  if (dashboardContainer()) {
     moduleFunction();
-  } else {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
   }
+  observer.observe(document.documentElement, {
+    childList: true,
+    subtree: true
+  });
 })();
