@@ -31,7 +31,7 @@
 
 .casamod-weather.casamod-weather-theme-liquid .casamod-weather-card {
   position: relative;
-  border-radius: 20px;
+  border-radius: 10px;
   color: rgba(255, 255, 255, .96);
   background:
     radial-gradient(circle at 14% 8%, var(--liquid-accent-a), transparent 42%),
@@ -52,7 +52,7 @@
   position: absolute;
   inset: 1px;
   z-index: 0;
-  border-radius: 19px;
+  border-radius: 10px;
   background:
     linear-gradient(118deg, rgba(255, 255, 255, .34), transparent 18% 76%, rgba(255, 255, 255, .12)),
     linear-gradient(180deg, rgba(255, 255, 255, .14), transparent 38%);
@@ -87,7 +87,6 @@
   left: 48px;
   width: 128px;
   height: 128px;
-  opacity: .72;
   filter: saturate(.86) drop-shadow(0 10px 20px rgba(0, 15, 40, .30));
 }
 
