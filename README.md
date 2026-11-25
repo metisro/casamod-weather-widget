@@ -1,6 +1,9 @@
-# CasaMOD - Weather Widget v1.1.0
+# ReCasaOS CasaMOD - Weather Widget v1.4.0
 
-CasaMOD Weather Widget adds a weather card to the CasaOS dashboard.
+This mod adds a weather card to both the classic and beta ReCasaOS dashboards.
+It detects the active dashboard panel and follows it when switching modes. On
+the beta dashboard, its settings offer a header widget, an expanded card below
+Backups, both, or disabled.
 
 It is based on the Weather widget idea from
 [IceWhaleTech/CasaOS-UI pull request #257](https://github.com/IceWhaleTech/CasaOS-UI/pull/257/commits),
@@ -9,7 +12,9 @@ component.
 
 ## Features
 
-- Injects a Weather widget into the CasaOS dashboard.
+- Injects a Weather widget into the classic sidebar or beta dashboard's side panel.
+- Adds an optional compact beta header button with a five-day forecast popover.
+- Lets beta users choose **Header**, **Expanded card**, **Both**, or **Disabled**.
 - Shows current temperature, apparent temperature, humidity, wind speed, and
   weather description.
 - Includes a compact hourly temperature chart for the next 8 hours.
@@ -22,18 +27,29 @@ component.
   Fahrenheit settings.
 - Includes CasaOS, Aero, and macOS-inspired Liquid Glass themes.
 - Uses Open-Meteo, so no bundled OpenWeatherMap API key is required.
-- Persists settings through CasaOS' file API at:
+- Shows today's precipitation chance and temperature range in the header popover.
+- Persists settings through ReCasaOS' file API at:
 
 ```text
-/var/lib/casaos/1/weather-widget.json
+/DATA/AppData/casamod/weather-widget.json
 ```
 
-## Installation
+## Installation on ReCasaOS
 
-1. Copy `mod.js`, `themes/`, and `icons/` into your CasaMOD extension/mod
-   location.
-2. Enable or load the mod in CasaOS.
-3. Open the CasaOS dashboard.
+Copy the complete `weather-widget-RE` folder (including `mod.js`, `themes/`,
+and `icons/`) to the ReCasaOS host:
+
+```text
+/DATA/AppData/casamod/mod/weather-widget-RE
+```
+
+Restart CasaMOD and hard-refresh the ReCasaOS dashboard. To uninstall, remove
+the folder and restart CasaMOD. The widget stores its settings at
+`/DATA/AppData/casamod/weather-widget.json` through ReCasaOS's `/v1/file` API.
+
+The beta display setting defaults to **Expanded card** to preserve this mod's
+existing behavior. It changes only the beta dashboard; the classic dashboard
+continues to show its sidebar card.
 
 ## Usage
 
