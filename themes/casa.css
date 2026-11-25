@@ -7,13 +7,25 @@
   --casamod-weather-chart-line: rgb(73, 179, 255);
   --casamod-weather-chart-fill: rgba(73, 179, 255, .32);
   --casamod-weather-chart-grid: rgba(255, 255, 255, .10);
-  --casamod-weather-chart-text: rgba(255, 255, 255, .62);
+  --casamod-weather-chart-text: rgba(236, 244, 254, 1);
 }
 
 .casamod-weather.casamod-weather-theme-casa .casamod-weather-card {
-  color: var(--text-1, #e0e4f0);
+/* color: var(--text-1, #e0e4f0);
   background: var(--background-2, rgba(30, 32, 48, .88));
-  border-color: var(--background-4, rgba(255, 255, 255, .08));
+  border-color: var(--background-4, rgba(255, 255, 255, .08)); */
+    backdrop-filter: blur(5px) saturate(180%);
+    background-attachment: fixed;
+    background-color: rgba(53,54,58,.4);
+    background-position: bottom;
+    background-size: cover;
+    border: none;
+    border-radius: 10px;
+    box-shadow: inset .5px 1px 1px 0 hsla(0,0%,100%,.125);
+    height: 100%;
+    overflow: hidden;
+    width: 100%;
+    z-index: 0
 }
 
 .casamod-weather.casamod-weather-theme-casa .casamod-weather-scene-art {
@@ -22,7 +34,6 @@
   left: 55px;
   width: 118px;
   height: 118px;
-  opacity: .18;
   filter: saturate(.85) drop-shadow(0 8px 14px rgba(0, 0, 0, .28));
 }
 
