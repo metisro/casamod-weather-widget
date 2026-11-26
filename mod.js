@@ -1,4 +1,4 @@
-// ReCasaOS / CasaMOD: Weather Widget v1.4.0
+// ReCasaOS / CasaMOD: Weather Widget v1.4.1
 // Based on CasaOS-UI PR #257's Weather.vue idea, adapted as an injected CasaMOD.
 
 (function CasaMODWeatherWidget() {
@@ -370,12 +370,16 @@
 
       .${MOD_ID}-topbar-widget {
         position: relative;
+        display: flex;
+        align-items: center;
         flex: 0 0 auto;
         margin-left: auto;
         margin-right: .75rem;
         color: #f1f5f9;
         text-align: left;
       }
+
+      .${MOD_ID}-topbar-widget[hidden] { display: none !important; }
 
       .${MOD_ID}-header-trigger {
         display: flex;
