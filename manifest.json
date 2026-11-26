@@ -1,8 +1,8 @@
 {
   "id": "weather-widget",
   "name": "Weather Widget",
-  "version": "1.4.0",
-  "description": "ReCasaOS / CasaOS dashboard weather widget using Open-Meteo",
+  "version": "1.4.1",
+  "description": "ReCasaOS dashboard weather widget using Open-Meteo",
   "entry": "mod.js",
   "type": "mod"
 }
