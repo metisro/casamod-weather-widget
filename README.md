@@ -1,4 +1,4 @@
-# ReCasaOS CasaMOD - Weather Widget v1.4.0
+# ReCasaOS CasaMOD - Weather Widget v1.4.1
 
 This mod adds a weather card to both the classic and beta ReCasaOS dashboards.
 It detects the active dashboard panel and follows it when switching modes. On
@@ -15,6 +15,8 @@ component.
 - Injects a Weather widget into the classic sidebar or beta dashboard's side panel.
 - Adds an optional compact beta header button with a five-day forecast popover.
 - Lets beta users choose **Header**, **Expanded card**, **Both**, or **Disabled**.
+- Keeps the card title aligned to the left and lays out placement choices in a
+  compact two-column grid; settings remain scrollable on short screens.
 - Shows current temperature, apparent temperature, humidity, wind speed, and
   weather description.
 - Includes a compact hourly temperature chart for the next 8 hours.
@@ -47,9 +49,10 @@ Restart CasaMOD and hard-refresh the ReCasaOS dashboard. To uninstall, remove
 the folder and restart CasaMOD. The widget stores its settings at
 `/DATA/AppData/casamod/weather-widget.json` through ReCasaOS's `/v1/file` API.
 
-The beta display setting defaults to **Expanded card** to preserve this mod's
-existing behavior. It changes only the beta dashboard; the classic dashboard
-continues to show its sidebar card.
+For new installations, the beta display setting defaults to **Both** so the
+top-bar shortcut and expanded card are visible. Existing saved settings remain
+in effect. It changes only the beta dashboard; the classic dashboard continues
+to show its sidebar card.
 
 ## Usage
 
